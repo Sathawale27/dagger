@@ -17,6 +17,8 @@
 package dagger.internal.codegen;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
+import static dagger.internal.codegen.CompilerMode.DEFAULT_MODE;
+import static dagger.internal.codegen.CompilerMode.EXPERIMENTAL_ANDROID_MODE;
 import static dagger.internal.codegen.Compilers.CLASS_PATH_WITHOUT_GUAVA_OPTION;
 import static dagger.internal.codegen.Compilers.daggerCompiler;
 import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
@@ -87,53 +89,124 @@ public class MapBindingExpressionTest {
         "  Map<Long, Provider<Long>> providerLongs();",
         "}");
     JavaFileObject generatedComponent =
-        JavaFileObjects.forSourceLines(
-            "test.DaggerTestComponent",
-            "package test;",
-            "",
-            "import dagger.internal.MapBuilder;",
-            "",
-            GENERATED_ANNOTATION,
-            "public final class DaggerTestComponent implements TestComponent {",
-            "  @Override",
-            "  public Map<String, String> strings() {",
-            "    return Collections.<String, String>emptyMap();",
-            "  }",
-            "",
-            "  @Override",
-            "  public Map<String, Provider<String>> providerStrings() {",
-            "    return Collections.<String, Provider<String>>emptyMap();",
-            "  }",
-            "",
-            "  @Override",
-            "  public Map<Integer, Integer> ints() {",
-            "    return Collections.<Integer, Integer>singletonMap(0, MapModule.provideInt());",
-            "  }",
-            "",
-            "  @Override",
-            "  public Map<Integer, Provider<Integer>> providerInts() {",
-            "    return Collections.<Integer, Provider<Integer>>singletonMap(",
-            "        0, MapModule_ProvideIntFactory.create());",
-            "  }",
-            "",
-            "  @Override",
-            "  public Map<Long, Long> longs() {",
-            "    return MapBuilder.<Long, Long>newMapBuilder(3)",
-            "        .put(0L, MapModule.provideLong0())",
-            "        .put(1L, MapModule.provideLong1())",
-            "        .put(2L, MapModule.provideLong2())",
-            "        .build();",
-            "  }",
-            "",
-            "  @Override",
-            "  public Map<Long, Provider<Long>> providerLongs() {",
-            "    return MapBuilder.<Long, Provider<Long>>newMapBuilder(3)",
-            "        .put(0L, MapModule_ProvideLong0Factory.create())",
-            "        .put(1L, MapModule_ProvideLong1Factory.create())",
-            "        .put(2L, MapModule_ProvideLong2Factory.create())",
-            "        .build();",
-            "  }",
-            "}");
+        compilerMode
+            .javaFileBuilder("test.DaggerTestComponent")
+            .addLines(
+                "package test;",
+                "",
+                "import dagger.internal.MapBuilder;",
+                "",
+                GENERATED_ANNOTATION,
+                "public final class DaggerTestComponent implements TestComponent {")
+            .addLinesIn(
+                EXPERIMENTAL_ANDROID_MODE,
+                "  private volatile Provider<Integer> provideIntProvider;",
+                "  private volatile Provider<Long> provideLong0Provider;",
+                "  private volatile Provider<Long> provideLong1Provider;",
+                "  private volatile Provider<Long> provideLong2Provider;",
+                "",
+                "  private Provider<Integer> getMapOfIntegerAndProviderOfIntegerProvider() {",
+                "    if (provideIntProvider == null) {",
+                "      provideIntProvider = new SwitchingProvider<>(0);",
+                "    }",
+                "    return provideIntProvider;",
+                "  }",
+                "",
+                "  private Provider<Long> getMapOfLongAndProviderOfLongProvider() {",
+                "    if (provideLong0Provider == null) {",
+                "      provideLong0Provider = new SwitchingProvider<>(1);",
+                "    }",
+                "    return provideLong0Provider;",
+                "  }",
+                "",
+                "  private Provider<Long> getMapOfLongAndProviderOfLongProvider2() {",
+                "    if (provideLong1Provider == null) {",
+                "      provideLong1Provider = new SwitchingProvider<>(2);",
+                "    }",
+                "    return provideLong1Provider;",
+                "  }",
+                "",
+                "  private Provider<Long> getMapOfLongAndProviderOfLongProvider3() {",
+                "    if (provideLong2Provider == null) {",
+                "      provideLong2Provider = new SwitchingProvider<>(3);",
+                "    }",
+                "    return provideLong2Provider;",
+                "  }")
+            .addLines(
+                "  @Override",
+                "  public Map<String, String> strings() {",
+                "    return Collections.<String, String>emptyMap();",
+                "  }",
+                "",
+                "  @Override",
+                "  public Map<String, Provider<String>> providerStrings() {",
+                "    return Collections.<String, Provider<String>>emptyMap();",
+                "  }",
+                "",
+                "  @Override",
+                "  public Map<Integer, Integer> ints() {",
+                "    return Collections.<Integer, Integer>singletonMap(0, MapModule.provideInt());",
+                "  }",
+                "",
+                "  @Override",
+                "  public Map<Integer, Provider<Integer>> providerInts() {",
+                "    return Collections.<Integer, Provider<Integer>>singletonMap(")
+            .addLinesIn(
+                DEFAULT_MODE, //
+                "        0, MapModule_ProvideIntFactory.create());")
+            .addLinesIn(
+                EXPERIMENTAL_ANDROID_MODE,
+                "        0, getMapOfIntegerAndProviderOfIntegerProvider());")
+            .addLines(
+                "  }",
+                "",
+                "  @Override",
+                "  public Map<Long, Long> longs() {",
+                "    return MapBuilder.<Long, Long>newMapBuilder(3)",
+                "        .put(0L, MapModule.provideLong0())",
+                "        .put(1L, MapModule.provideLong1())",
+                "        .put(2L, MapModule.provideLong2())",
+                "        .build();",
+                "  }",
+                "",
+                "  @Override",
+                "  public Map<Long, Provider<Long>> providerLongs() {",
+                "    return MapBuilder.<Long, Provider<Long>>newMapBuilder(3)")
+            .addLinesIn(
+                DEFAULT_MODE,
+                "        .put(0L, MapModule_ProvideLong0Factory.create())",
+                "        .put(1L, MapModule_ProvideLong1Factory.create())",
+                "        .put(2L, MapModule_ProvideLong2Factory.create())")
+            .addLinesIn(
+                EXPERIMENTAL_ANDROID_MODE,
+                "        .put(0L, getMapOfLongAndProviderOfLongProvider())",
+                "        .put(1L, getMapOfLongAndProviderOfLongProvider2())",
+                "        .put(2L, getMapOfLongAndProviderOfLongProvider3())")
+            .addLines( //
+                "        .build();", "  }")
+            .addLinesIn(
+                EXPERIMENTAL_ANDROID_MODE,
+                "  private final class SwitchingProvider<T> implements Provider<T> {",
+                "    private final int id;",
+                "",
+                "    SwitchingProvider(int id) {",
+                "      this.id = id;",
+                "    }",
+                "",
+                "    @SuppressWarnings(\"unchecked\")",
+                "    @Override",
+                "    public T get() {",
+                "      switch (id) {",
+                "        case 0: return (T) (Integer) MapModule.provideInt();",
+                "        case 1: return (T) (Long) MapModule.provideLong0();",
+                "        case 2: return (T) (Long) MapModule.provideLong1();",
+                "        case 3: return (T) (Long) MapModule.provideLong2();",
+                "        default: throw new AssertionError(id);",
+                "      }",
+                "    }",
+                "  }",
+                "}")
+            .build();
     Compilation compilation = daggerCompilerWithoutGuava().compile(mapModuleFile, componentFile);
     assertThat(compilation).succeeded();
     assertThat(compilation)
